@@ -1,0 +1,475 @@
+{
+  "name": "auto-post-twitter/gmail",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -112
+      ],
+      "id": "3ade5e68-7e1f-4b46-908c-93d00356cebe",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/feed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        0
+      ],
+      "id": "fbdef92d-a4a1-4f29-8a0f-7be159a1bd65",
+      "name": "TECH NEWS FEED"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        576,
+        -112
+      ],
+      "id": "4704460d-58df-49dd-b98b-e7688d65771e",
+      "name": "COMBINED NEWS FROM MULTIPLES SOURCES",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "maxTokensToSample": 250
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        176
+      ],
+      "id": "876e690b-0678-4b66-abb2-10322e47f433",
+      "name": "groq",
+      "credentials": {
+        "groqApi": {
+          "id": "7hMza3PtQ5MEN6Dk",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite-preview",
+        "options": {
+          "maxOutputTokens": 250
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        176
+      ],
+      "id": "b79da95d-46ac-4714-beec-b65dd72162dd",
+      "name": "gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XPsD00iJPki517NH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the news content:\n{{ $json.content }}\nTitle:\n{{ $json.title || $json.articles[0].title }}\nSource:\n{{ $json.source || $json.articles[1].source }}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are a top-tier tech Twitter creator known for sharp, viral, high-signal posts.\n\nTurn the given news into ONE powerful tweet.\n\n### Rules:\n\n* Max 280 characters (STRICT)\n* Focus on main message\n* Start with a scroll-stopping hook (bold, surprising, or contrarian)\n* Focus on the most interesting insight\n* No fluff, no generic phrasing\n* Natural, human tone\n\n### Hashtags:\n\n* Generate 3–5 relevant hashtags\n* Return as a single string (e.g., \"#AI #Tech #Startups\")\n\n### Source:\n\n* Include source only if provided\n* Otherwise return empty string \"\"\n\n### IMPORTANT:\n\n* Follow the JSON schema strictly\n* Return ONLY valid JSON\n* Do NOT use markdown formatting (no **, _, #, or backticks). Output plain text only."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1184,
+        -48
+      ],
+      "id": "2b56ad96-d784-4e7d-b008-40c83405b4e4",
+      "name": "Basic LLM Chain",
+      "notesInFlow": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        848,
+        -64
+      ],
+      "id": "d0d5565d-8f4e-402e-a3b7-62e778246fdc",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6aa2f990-8dee-4478-9d85-3c5324d5e409",
+              "name": "title",
+              "value": "={{ $json.title || $json.articles?.[0]?.title }}",
+              "type": "string"
+            },
+            {
+              "id": "a1e0c270-f22d-4083-90f1-9da9aadc8098",
+              "name": "content",
+              "value": "={{ $json.content || $json.articles?.[0]?.content || $json.articles[0].description }}",
+              "type": "string"
+            },
+            {
+              "id": "eb188fae-738d-4ffa-a3f3-de187398063f",
+              "name": "",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "d6f1ebd7-684e-4569-a50b-8229639f1ae9",
+              "name": "source",
+              "value": "={{ $json.articles[0].source.name || $json.articles[0].author || $json.source?.name || \"Trust Me bro\" }} ",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        -336
+      ],
+      "id": "57ad5681-3f80-43f7-8049-295a0f4a25be",
+      "name": "Normalize data"
+    },
+    {
+      "parameters": {
+        "sendTo": "hexacodecrafters@gmail.com",
+        "subject": "Latest Tech News",
+        "message": "=<!DOCTYPE html>\n<html>\n<body>\n\n<p>Hello,</p>\n\n<p>Here is your latest tech update:</p>\n\n<p>{{$json.output.tweet_text}}</p>\n\n<p>{{$json.output.hashtags}}</p>\n\n<p>Source: {{$json.output.source ? $json.output.source : \"Industry Reports\"}}</p>\n\n<br>\n\n<p>Regards,<br>\nAutomation System</p>\n\n</body>\n</html>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        -320
+      ],
+      "id": "197b501a-f581-4e44-95c0-01b2c5fecc26",
+      "name": "Send a message",
+      "webhookId": "3f52a9a0-b7b7-44d5-87c7-f58453b8b266",
+      "notesInFlow": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "f1h7K0QGT6umXWO6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1312,
+        -320
+      ],
+      "id": "02ded8ed-98b1-4019-a802-96413c5b65f6",
+      "name": "Wait",
+      "webhookId": "accf867d-af8a-4105-bc57-3e2f980ca5f9"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"tweet_text\": {\n      \"type\": \"string\",\n      \"description\": \"Viral tech tweet under 280 characters\"\n    },\n    \"hashtags\": {\n      \"type\": \"string\",\n      \"description\": \"3-5 relevant hashtags in a single  string like #AI #Tech\"\n    },\n    \"source\": {\n      \"type\": \"string\",\n      \"description\": \"Source name or empty if not available\"\n    }\n  },\n  \"required\": [\"tweet_text\", \"hashtags\"]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1488,
+        112
+      ],
+      "id": "127b38c7-2a65-4d7c-8715-ca6e50432146",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1616,
+        240
+      ],
+      "id": "75af77a0-e541-462c-8559-cdd4338a5cd0",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XPsD00iJPki517NH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{$json.output.tweet_text}}\n\n{{$json.output.hashtags}}\n\n{{$json.output.source ? 'Source: ' + $json.output.source : 'Source: Industry reports'}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        240,
+        -416
+      ],
+      "id": "1acb2ead-a9e7-4c02-85d4-73d839339885",
+      "name": "Create Tweet",
+      "credentials": {
+        "twitterOAuth2Api": {
+          "id": "skpe85kOB3LZp07O",
+          "name": "X account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Twitter \n\n### Twitter API is paid, so I used Gmail instead",
+        "color": "#304F97"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -16,
+        -448
+      ],
+      "typeVersion": 1,
+      "id": "985baafb-820c-43e0-943f-155fa9b9065c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/top-headlines",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "category",
+              "value": "technology"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "apiKey",
+              "value": "1c807414fdf846909d3ef144d1bc7cc8"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        256,
+        -224
+      ],
+      "id": "3a66d4d6-3fb6-4f00-bcd5-23fadc7ab2b9",
+      "name": "TECH NEWS API",
+      "notesInFlow": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "TECH NEWS FEED",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TECH NEWS API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TECH NEWS FEED": {
+      "main": [
+        [
+          {
+            "node": "COMBINED NEWS FROM MULTIPLES SOURCES",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "COMBINED NEWS FROM MULTIPLES SOURCES": {
+      "main": [
+        [
+          {
+            "node": "Normalize data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "groq": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Tweet": {
+      "main": [
+        []
+      ]
+    },
+    "TECH NEWS API": {
+      "main": [
+        [
+          {
+            "node": "COMBINED NEWS FROM MULTIPLES SOURCES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "389ed685-0dfd-4194-8ba1-301acbd84d0d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "06572c52ae7cd593b3231b1283fae683967d972550977aeb7f8d7d18905329ae"
+  },
+  "id": "3PpJFc3QynGJPMIz",
+  "tags": []
+}
