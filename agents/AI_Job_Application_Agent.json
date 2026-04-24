@@ -1,0 +1,719 @@
+{
+  "name": "AI Job Application Agent",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -32
+      ],
+      "id": "1711e470-215d-4f73-a99d-7ddb177adbd2",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "url": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        -256
+      ],
+      "id": "1b11e35c-7c90-4f95-86d3-d0cc96e6b04d",
+      "name": "we work remotely"
+    },
+    {
+      "parameters": {
+        "url": "https://remoteok.com/remote-dev-jobs.rss",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        -96
+      ],
+      "id": "8e5dca2b-3e95-467c-9fb9-2526574d58b0",
+      "name": "remote ok"
+    },
+    {
+      "parameters": {
+        "url": "https://remotive.com/api/remote-jobs?category=software-dev%20GET%20https://remotive.com/api/remote-jobs",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "=AI+engineer"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        64
+      ],
+      "id": "e9f072a1-f596-4c8e-aa1f-3f9880b29c6d",
+      "name": "remotive",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        448,
+        -48
+      ],
+      "id": "534a3609-7b21-45fa-9545-f391df93605e",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "27714c67-c3fd-4b88-a689-4a939ae67cf8",
+              "leftValue": "={{ [\"ai\", \"software\", \"engineer\", \"backend\", \"frontend\", \"fullstack\", \"automation\", \"ios\", \"android\", \"web\", \"developer\"].some(k => $json.title.toLowerCase().includes(k)) }}",
+              "rightValue": "=true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        640,
+        -32
+      ],
+      "id": "be045207-1f31-4c5d-b1e3-08085932a910",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        816,
+        -32
+      ],
+      "id": "848332f6-d041-4ae7-b3c8-7f0fe50f0926",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {
+          "maxTokensToSample": 200
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        960,
+        144
+      ],
+      "id": "39eb4052-10a8-4959-b42b-97e6f3f97773",
+      "name": "groq",
+      "notesInFlow": true,
+      "credentials": {
+        "groqApi": {
+          "id": "7hMza3PtQ5MEN6Dk",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {
+          "maxOutputTokens": 200
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        144
+      ],
+      "id": "376cc66c-7a89-4d2c-bc61-a62e906f8f2a",
+      "name": "Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XPsD00iJPki517NH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this job posting:\n\nTitle: {{ $json.title }}\nCategories: {{ $json.categories }}\nLink: {{ $json.link }}\njob Description: {{ $json.content }}\n",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are a job analysis engine.\n\nYour task is to extract and structure key information from a job posting.\n\nYou MUST return ONLY raw, valid JSON.\n- No markdown\n- No ```json\n- No explanations\n- No extra text\n- No \"output\" wrapper\n- No comments\n\n---\n\nINPUT:\nTitle: {{ $json.title }}\nCategories: {{ $json.categories }}\nLink: {{ $json.link }}\nDescription: {{ $json.content }}\n\n---\n\nOUTPUT SCHEMA (follow EXACTLY):\n\n{\n  \"title\": \"string\",\n  \"company\": \"string or null\",\n  \"location\": \"string or 'remote'\",\n  \"experience_level\": \"junior | mid | senior | unknown\",\n  \"required_skills\": [\"string\"],\n  \"nice_to_have_skills\": [\"string\"],\n  \"technologies\": [\"string\"],\n  \"job_type\": \"full-time | part-time | contract | internship | unknown\",\n  \"summary\": \"string\",\n  \"apply_link\": \"string\"\n}\n\n---\n\nRULES:\n- Extract company from description if possible, else null\n- Infer experience_level from terms like junior, senior, or years\n- Keep skills short (1–3 words each), no sentences\n- Remove duplicates\n- Limit required_skills to max 8 items\n- Limit nice_to_have_skills to max 5 items\n- Summary must be 2–3 short lines (max 40 words)\n- If data missing → use null or \"unknown\"\n- apply_link MUST be the provided link\n- Ensure ALL fields are present\n\n---\n\nCRITICAL:\nReturn ONLY valid JSON.\nThe response must be directly parsable by JSON.parse()."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1040,
+        -16
+      ],
+      "id": "23e56e9b-dc72-4429-a381-925b6588b527",
+      "name": "Basic LLM Chain",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"title\": { \"type\": \"string\" },\n    \"company\": { \"type\": [\"string\", \"null\"] },\n    \"location\": { \"type\": \"string\" },\n    \"experience_level\": {\n      \"type\": \"string\",\n      \"enum\": [\"junior\", \"mid\", \"senior\", \"unknown\"]\n    },\n    \"required_skills\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" },\n      \"maxItems\": 8\n    },\n    \"nice_to_have_skills\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" },\n      \"maxItems\": 5\n    },\n    \"technologies\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"job_type\": {\n      \"type\": \"string\",\n      \"enum\": [\"full-time\", \"part-time\", \"contract\", \"internship\", \"unknown\"]\n    },\n    \"summary\": { \"type\": \"string\", \"maxLength\": 300 },\n    \"apply_link\": { \"type\": \"string\" }\n  },\n  \"required\": [\n    \"title\",\n    \"company\",\n    \"location\",\n    \"experience_level\",\n    \"required_skills\",\n    \"nice_to_have_skills\",\n    \"technologies\",\n    \"job_type\",\n    \"summary\",\n    \"apply_link\"\n  ],\n  \"additionalProperties\": false\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        192
+      ],
+      "id": "dcb925f4-1509-4eb4-9ff7-fded292f5e9b",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        208
+      ],
+      "id": "fba91bcd-a6c7-4fac-83cd-8a2252aa41c0",
+      "name": "Wait",
+      "webhookId": "a83a2d40-f0bc-4c3d-b757-b3b1e5659aba"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are analyzing a job application match.\n\nJOB POSTING:\n{{ $('Basic LLM Chain').item.json.output.title }}\n{{ $('Basic LLM Chain').item.json.output.company }}\n{{ $('Basic LLM Chain').item.json.output.key_skills }}\n{{ $('Basic LLM Chain').item.json.output.categories }}\n\nCANDIDATE RESUME:\n{{ $json.text }}\n\n---\n\nReturn ONLY valid JSON. No extra text.\n\n{\n  \"match_score\": number,\n  \"verdict\": \"QUALIFIED\" or \"NOT QUALIFIED\",\n  \"strengths\": [\"string\"],\n  \"gaps\": [\"string\"],\n  \"recommendation\": \"string\"\n}\n\nRules:\n- match_score must be 0–100\n- If match_score >= 70 → \"QUALIFIED\"\n- Else → \"NOT QUALIFIED\"\n- Always return all fields\n- Never return empty or broken JSON",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an elite recruitment specialist and career coach with 15+ years of experience in tech hiring.\n\nYou have deep expertise in:\n- Evaluating technical resumes for software engineering, AI, automation, mobile, and web roles\n- Understanding what hiring managers actually look for\n- Spotting skill gaps and strengths instantly\n- Giving honest, actionable feedback\n\nYour job is to objectively match a candidate's resume against a job posting and give a brutally honest, detailed assessment.\n\nYou never sugarcoat. You never overrate. You are fair but direct.\n\nAlways evaluate based on EVIDENCE in the resume — not assumptions.\n\nReturn ONLY valid JSON.\nDo NOT wrap JSON in quotes.\nDo NOT truncate.\nEnsure complete response.\n\nIf response is long → still return full valid JSON."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        496,
+        208
+      ],
+      "id": "9f036d82-62a7-4fd8-837c-3133dfb6b77d",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {
+          "maxTokens": 300
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        464,
+        384
+      ],
+      "id": "cbebc0d5-d628-43ed-a79f-58f568637801",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "xLP1CEvqy9WWsZbY",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"match_score\": {\n      \"type\": \"number\"\n    },\n    \"verdict\": {\n      \"type\": \"string\",\n      \"enum\": [\"QUALIFIED\", \"NOT QUALIFIED\"]\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"gaps\": {\n      \"type\": \"array\",\n      \"items\": { \"type\": \"string\" }\n    },\n    \"recommendation\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"match_score\",\n    \"verdict\",\n    \"strengths\",\n    \"gaps\",\n    \"recommendation\"\n  ]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        416
+      ],
+      "id": "e6ece8cd-a2d7-426d-9b26-918b237bc09d",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "1SCnXCNU5G9ZkVZrGSOpFxVn9YYTDfosr",
+          "mode": "list",
+          "cachedResultName": "Shahidul Islam Shanto - Resume.pdf",
+          "cachedResultUrl": "https://drive.google.com/file/d/1SCnXCNU5G9ZkVZrGSOpFxVn9YYTDfosr/view?usp=drivesdk"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -112,
+        304
+      ],
+      "id": "b53b249d-f7e1-4a4d-8655-9fb9d90be754",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "gITIlMYckeezlnoP",
+          "name": "Google Drive OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "=data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        80,
+        304
+      ],
+      "id": "f9751960-77d1-4faa-8bb7-e4f02912c5e2",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        288,
+        320
+      ],
+      "id": "82b8d0ff-14e6-4e5b-956a-d899f319011f",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {
+          "maxOutputTokens": 200
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        832,
+        560
+      ],
+      "id": "1ead67b6-8159-474c-ae3e-8151edb719ee",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XPsD00iJPki517NH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "hexacodecrafters@gmail.com",
+        "subject": "Jobs You can apply",
+        "message": "=<div style=\"font-family: Arial, sans-serif; line-height:1.6; color:#333;\">\n\n  <h2 style=\"color:#2c3e50;\">Job Match Result</h2>\n\n  <p><strong>Apply Link:</strong><br>\n    <a href=\"{{ $('Merge1').item.json.output.apply_link }}\" target=\"_blank\">\n      Apply Here\n    </a>\n  </p>\n\n  <p><strong>Verdict:</strong> {{ $json.output.verdict }}</p>\n\n  <h3 style=\"color:#27ae60;\">Strengths</h3>\n  <ul>\n    {{ $json.output.strengths.map(s => `<li>${s}</li>`).join('') }}\n  </ul>\n\n  <h3 style=\"color:#c0392b;\">Gaps</h3>\n  <ul>\n    {{ $json.output.gaps.map(g => `<li>${g}</li>`).join('') }}\n  </ul>\n\n  <h3 style=\"color:#2980b9;\">Recommendation</h3>\n  <p>{{ $json.output.recommendation }}</p>\n\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1104,
+        464
+      ],
+      "id": "ed9c521f-5063-465c-b041-0a46eca63a44",
+      "name": "Send a message",
+      "webhookId": "51f87164-9836-4269-bb6b-798c03acbd69",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "f1h7K0QGT6umXWO6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"match_score\": {\n      \"type\": \"number\",\n      \"minimum\": 0,\n      \"maximum\": 100\n    },\n    \"verdict\": {\n      \"type\": \"string\",\n      \"enum\": [\"QUALIFIED\", \"NOT QUALIFIED\"]\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"minItems\": 1,\n      \"maxItems\": 5,\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"gaps\": {\n      \"type\": \"array\",\n      \"minItems\": 1,\n      \"maxItems\": 5,\n      \"items\": {\n        \"type\": \"string\"\n      }\n    },\n    \"recommendation\": {\n      \"type\": \"string\",\n      \"maxLength\": 500\n    }\n  },\n  \"required\": [\n    \"match_score\",\n    \"verdict\",\n    \"strengths\",\n    \"gaps\",\n    \"recommendation\"\n  ],\n  \"additionalProperties\": false\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        672
+      ],
+      "id": "69ec7067-e89a-474a-8b57-7cf3795acc44",
+      "name": "Structured Output Parser2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 300
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1136,
+        816
+      ],
+      "id": "b15170b6-9756-42c5-9def-da582dcbe6b6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "PVMukrhkqXs4IaCM",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        336
+      ],
+      "id": "207d837f-6710-4489-8859-681d5530df5c",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "XPsD00iJPki517NH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "we work remotely",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "remote ok",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "remotive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "we work remotely": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "remote ok": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "remotive": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "groq": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9f8d9e50-339e-4682-ba40-1a30be18e4b4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "06572c52ae7cd593b3231b1283fae683967d972550977aeb7f8d7d18905329ae"
+  },
+  "id": "DLhl0OH8RXvrm3tF",
+  "tags": [
+    {
+      "updatedAt": "2026-04-24T05:33:38.502Z",
+      "createdAt": "2026-04-24T05:33:38.502Z",
+      "id": "gq9Bwv5zPFt5LOjE",
+      "name": "multi-agent-system"
+    }
+  ]
+}
